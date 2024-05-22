@@ -14,7 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -162,3 +161,5 @@ cython_debug/
 requirements.in
 */config.py
 */images
+fastapi_app/alembic
+fastapi_app/alembic.ini
