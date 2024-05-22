@@ -1,0 +1,6 @@
+docker compose up -d
+
+cd .\fastapi_app
+python -m venv venv
+.\venv\Scripts\activate
+python pip install -r
