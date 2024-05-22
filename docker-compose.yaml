@@ -1,0 +1,8 @@
+version: '3'
+services:
+  database:
+    image: "postgres"
+    env_file:
+      - fastapi_app/.env
+    ports:
+      - "5544:5432"
