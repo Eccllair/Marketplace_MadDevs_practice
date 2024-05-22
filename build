@@ -1,6 +1,11 @@
+mv .env fastapi_app\.env
 docker compose up -d
-
 cd .\fastapi_app
 python -m venv venv
 .\venv\Scripts\activate
 python pip install -r
+.\venv\Scripts\alembic.exe init -t async alembic
+mv ..\env.py alembic\env.py
+python build.py
+alembic revision --autogenerate -m "init database"
+alembic upgrade head
