@@ -125,6 +125,8 @@ class Brand(Base):
 #категория продуктов
 class Category(Base):
     __tablename__ = "category"
+    
+    id: Mapped[int] = mapped_column(type_=Integer(), primary_key=True, autoincrement=True)                          #уникальный идентификатор
     name: Mapped[str] = mapped_column(String(255), nullable=False)                                                  #название категории
 
 
@@ -165,7 +167,7 @@ class ProductInShop(Base):
     id: Mapped[int] = mapped_column(type_=Integer(), primary_key=True, autoincrement=True)                          #уникальный идентификатор
     shop_id: Mapped[int] = mapped_column(ForeignKey(Shop.id, ondelete="CASCADE"))                                   #магазин, в котором лежит продукт
     product_id: Mapped[int] = mapped_column(ForeignKey(Product.id, ondelete="SET NULL"), nullable=True)             #продукт, который лежит в магазине
-    amount: Mapped[int] = mapped_column(Integer(10), default=None, nullable=True)                                   #количество продукта
+    amount: Mapped[int] = mapped_column(Integer(), default=None, nullable=True)                                   #количество продукта
     price: Mapped[float] = mapped_column(Float(), default=None, nullable=True)                                      #цена продукта
     date_of_creation: Mapped[datetime] = mapped_column(type_=DateTime(), nullable=False, default=datetime.now())    #дата и время создания
 
