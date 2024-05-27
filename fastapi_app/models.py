@@ -1,7 +1,5 @@
 from datetime import date, datetime
 
-from typing import Optional
-from sqlalchemy.sql import func
 from sqlalchemy import (
     String,
     Integer,
@@ -9,7 +7,6 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
-    UniqueConstraint,
     Text,
     Float
 )
@@ -31,17 +28,17 @@ class User(Base):
     
     id: Mapped[int] = mapped_column(type_=Integer(), primary_key=True, autoincrement=True)                          #уникальный идентификатор
     login: Mapped[str] = mapped_column(type_=String(255), unique=True, nullable=False)                              #уникальное имя пользователя
-    name: Mapped[str] = mapped_column(type_=String(255), nullable=False)                                            #имя
+    name: Mapped[str] = mapped_column(type_=String(255), nullable=True)                                             #имя
     surname: Mapped[str] = mapped_column(type_=String(255), nullable=True)                                          #фамилия
     patronymic: Mapped[str] = mapped_column(type_=String(255), nullable=True)                                       #отчество
-    mail: Mapped[str] = mapped_column(type_=String(255), unique=True, nullable=True)                                #почта для верификации
+    mail: Mapped[str] = mapped_column(type_=String(255), unique=True, nullable=False)                               #почта для верификации
     pwd_hash: Mapped[str] = mapped_column(type_=String(255), nullable=False)                                        #хэш пароля
     avatar_img: Mapped[str] = mapped_column(type_=String(255), default="default.png", nullable=False)               #ссылка на аватар пользователя
     is_verified: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                       #почта подтверждена/не подтверждена
     is_admin: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                          #права на редактирование всех пользователей
     is_superuser: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                      #права на раздачу прав админа
     is_blocked: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                        #пользователь заблокирован / не заблокирован
-    blocking_datetime: Mapped[datetime] = mapped_column(type_=DateTime(), default=False, nullable=False)            #дата и время блокировки
+    blocking_datetime: Mapped[datetime] = mapped_column(type_=DateTime(), default=None, nullable=True)              #дата и время блокировки
 
 
 #коды верификации, отправленные на почту
@@ -60,7 +57,7 @@ class JWT(Base):
     
     id: Mapped[int] = mapped_column(type_=Integer(), primary_key=True, autoincrement=True)                          #уникальный идентификатор
     user: Mapped[int] = mapped_column(ForeignKey(User.id, ondelete='CASCADE'))                                      #владелец токена
-    token: Mapped[str] = mapped_column(String(4096))                                                                #jwt строка
+    token: Mapped[str] = mapped_column(String(4096), nullable=False)                                                                #jwt строка
 
 
 #магазин
