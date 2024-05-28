@@ -12,14 +12,17 @@ from typing import Annotated
 
 ### web import
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi import HTTPException
-from fastapi import Depends
+from fastapi import HTTPException, Cookie, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy.engine import Result
 from sqlalchemy import select, insert
 
+#other imports
+from passlib.context import CryptContext
+import logging
+
 ### custom import
-from .pydantic_models import pd_jwt
+from .pydantic_models import pd_jwt, pd_user
 from ..models import JWT, User, VerifyCode
 from ..database import async_session_maker
 
@@ -30,7 +33,9 @@ JWT_SECRET = os.getenv('JWT_SECRET')
 JWT_ALGORITHM = os.getenv('JWT_ALGORITHM')
 email_regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b' #регулярное выражение проверки почты
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token") #указание типа аутентификации для FastAPI
+
+bcrypt_context = CryptContext(schemes=['bcrypt'])
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/signin") #указание типа аутентификации для FastAPI
 
 ### функции
 ## работа с почтой пользователя
@@ -95,22 +100,33 @@ async def check_jwt(jwt_str: str, session: Session = async_session_maker()) -> b
     token_exists = bool(token_from_db.scalar_one_or_none())
     if token_exists:
         token = decode_jwt(jwt_str)
-        if datetime(token.expiration_date) < datetime.now(): return False
+        if datetime.strptime(token.expiration_date, "%Y-%m-%d %H:%M:%S.%f") < datetime.now(): return False
         else: return True
     else: return False
 
+async def get_user_from_jwt(jwt_str, session: Session = async_session_maker()) -> User:
+    user_login = decode_jwt(jwt_str).login
+    bd_user: Result = await session.execute(select(User).where(User.login == user_login))
+    return bd_user.scalars().one()
 
-#работа напрямую с аудетнификацией
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: Session = async_session_maker()) -> User:
-    exception = HTTPException(status_code=401, detail="Invalid authentication credentials", headers={"WWW-Authenticate": "Bearer"})
+
+#работа напрямую с аудетнификацией 
+async def get_current_user(token: str = Depends(oauth2_scheme), access_token: Annotated[str | None, Cookie()] = None, refresh_token: Annotated[str | None, Cookie()] = None) -> User:
+    exception_401 = HTTPException(status_code=401, detail="Invalid authentication credentials", headers={"WWW-Authenticate": "Bearer"})
+    exception_403 = HTTPException(status_code=403)
+    user: User = None
     
-    if not await check_jwt(token): raise exception
+    if not await check_jwt(access_token):
+        if not await check_jwt(refresh_token): raise exception_401
+        else:
+            user = await get_user_from_jwt(refresh_token)
+            if user:
+                if user.is_blocked: raise exception_403
+                await create_jwt(user)
+                return user
+            
+    user = await get_user_from_jwt(token)
+    if not user: raise exception_401
+    if user.is_blocked: raise exception_403
     
-    user: pd_jwt = decode_jwt(token)
-    if not user: raise exception
-    
-    user_from_bd: Result = await session.execute(select(User).where(User.login == user.login))
-    bd_user: User = user_from_bd.scalar_one_or_none()
-    if not bd_user: raise exception
-    
-    return bd_user
+    return user
