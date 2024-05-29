@@ -66,3 +66,27 @@ class pd_jwt(BaseModel):
     
     async def get_user(self, session: Session = async_session_maker()) -> User:
         return await session.execute(select(User).where(User.login == self.login))
+
+
+class pd_shop(BaseModel):
+    name: str
+    description: str | None
+    avatar_img: str | None
+
+
+class pd_shop_edit(BaseModel):
+    id: int
+    name: str | None
+    description: str | None
+    avatar_img: str | None
+    
+class pd_position(BaseModel):
+    name: str
+    can_add_staff: bool | None = False
+    can_change_staff: bool | None = False
+    can_delete_staff: bool | None = False
+    can_add_product: bool | None = False
+    can_change_product: bool | None = False
+    can_delete_product: bool | None = False
+    date_of_creation: bool | None = False
+    date_of_change: bool | None = False
