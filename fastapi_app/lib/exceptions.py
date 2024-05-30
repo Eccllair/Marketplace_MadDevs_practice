@@ -1,12 +1,28 @@
+from typing import Any, Mapping
 from fastapi.responses import JSONResponse
+from starlette.background import BackgroundTask
 
-response_not_enough_rights = JSONResponse(
-            content={
-                "status" : "fail",
-                "message" : "not enough rights"
-            },
-            status_code=403
-        )
+class ResponseException(JSONResponse):
+    content: dict ={
+        "status" : "fail",
+        "message" : ""
+    }
+    
+    def __init__(self, message: str = "Bad Request", status_code: int = 400, headers: Mapping[str, str] | None = None, media_type: str | None = None, background: BackgroundTask | None = None) -> None:
+        self._message(message)
+        super().__init__(self.content, status_code, headers, media_type, background)
+    
+    def _message(self, message: str) -> None:
+        self.content["message"] = message
+
+
+class Forbidden(ResponseException):
+    def __init__(self, message: str = "forbidden", status_code: int = 403, headers: Mapping[str, str] | None = None, media_type: str | None = None, background: BackgroundTask | None = None) -> None:
+        super().__init__(message, status_code, headers, media_type, background)
+
+class NotFound(ResponseException):
+    def __init__(self, message: str = "Not Found", status_code: int = 404, headers: Mapping[str, str] | None = None, media_type: str | None = None, background: BackgroundTask | None = None) -> None:
+        super().__init__(message, status_code, headers, media_type, background)
 
 
 #TODO
