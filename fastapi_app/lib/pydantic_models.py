@@ -79,14 +79,26 @@ class pd_shop_edit(BaseModel):
     name: str | None
     description: str | None
     avatar_img: str | None
-    
+
 class pd_position(BaseModel):
     name: str
-    can_add_staff: bool | None = False
-    can_change_staff: bool | None = False
-    can_delete_staff: bool | None = False
-    can_add_product: bool | None = False
-    can_change_product: bool | None = False
-    can_delete_product: bool | None = False
-    date_of_creation: bool | None = False
-    date_of_change: bool | None = False
+    can_add_staff: bool | None = None
+    can_change_staff: bool | None = None
+    can_delete_staff: bool | None = None
+    can_add_product: bool | None = None
+    can_change_product: bool | None = None
+    can_delete_product: bool | None = None
+    date_of_creation: bool | None = None
+    date_of_change: bool | None = None
+    
+class pd_position_edit(BaseModel):
+    id: int
+    name: str | None = None
+    can_add_staff: bool | None = None
+    can_change_staff: bool | None = None
+    can_delete_staff: bool | None = None
+    can_add_product: bool | None = None
+    can_change_product: bool | None = None
+    can_delete_product: bool | None = None
+    date_of_creation: bool | None = None
+    date_of_change: bool | None = None
