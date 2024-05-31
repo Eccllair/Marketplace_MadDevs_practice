@@ -65,10 +65,14 @@ class Shop(Base):
     __tablename__ = "shop"
     
     id: Mapped[int] = mapped_column(type_=Integer(), primary_key=True, autoincrement=True)                          #уникальный идентификатор
+    owner_id: Mapped[int] = mapped_column(ForeignKey(User.id, ondelete="SET NULL"), nullable=True)                  #пользователь создавший магазин
     name: Mapped[str] = mapped_column(type_=String(255), nullable=False)                                            #название
-    description: Mapped[str] = mapped_column(type_=Text(), nullable=False)                                          #описание
-    is_deleted: Mapped[bool] = mapped_column(type_=Boolean(), default=False)                                        #флаг удаления записи магазина
-    date_of_creation: Mapped[datetime] = mapped_column(type_=DateTime(), nullable=False, default=datetime.now())    #дата и время создания
+    description: Mapped[str] = mapped_column(type_=Text(), nullable=True)                                          #описание
+    avatar_img: Mapped[str] = mapped_column(type_=String(255), default="default.png", nullable=False)               #ссылка на аватар магазина
+    is_deleted: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                                        #флаг удаления записи магазина
+    is_confirmed: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                      #бренд подтвержден / не подтвержден
+    confirmation_date: Mapped[date] = mapped_column(type_=Date(), default=None, nullable=True)                      #дата подтверждения бренда
+    date_of_creation: Mapped[datetime] = mapped_column(type_=DateTime(), default=datetime.now(), nullable=False)    #дата и время создания
 
 
 #фотографии магазинов
@@ -86,14 +90,15 @@ class Position(Base):
     
     id: Mapped[int] = mapped_column(type_=Integer(), primary_key=True, autoincrement=True)                          #уникальный идентификатор
     name: Mapped[str] = mapped_column(type_=String(255), nullable=False)                                            #название
+    creator_id: Mapped[int] = mapped_column(ForeignKey(User.id, ondelete="SET NULL"), nullable=True)                #пользователь, создавший позицию
     can_add_staff: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                     #возможность добавлять сотрудников магазина
     can_change_staff: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                  #возможность изменять сотрудников магазина
     can_delete_staff: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                  #возможность удалять сотрудников магазина
     can_add_product: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                   #возможность добавлять продукты магазина
     can_change_product: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                #возможность изменять продукты магазина
     can_delete_product: Mapped[bool] = mapped_column(type_=Boolean(), default=False, nullable=False)                #возможность удалять продукты магазина
-    date_of_creation: Mapped[datetime] = mapped_column(type_=DateTime(), nullable=False, default=datetime.now())    #дата и время создания
-    date_of_change: Mapped[datetime] = mapped_column(type_=DateTime(), nullable=False)                              #дата и время изменения
+    date_of_creation: Mapped[datetime] = mapped_column(type_=DateTime(), default=datetime.now(), nullable=False)    #дата и время создания
+    date_of_change: Mapped[datetime] = mapped_column(type_=DateTime(), default=None, nullable=True)                 #дата и время изменения
 
 
 #сотрудники магазина
@@ -104,6 +109,18 @@ class ShopAndUser(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey(User.id, ondelete="CASCADE"), nullable=False)                   #сотрудник магазина
     shop_id: Mapped[int] = mapped_column(ForeignKey(Shop.id, ondelete="CASCADE"), nullable=False)                   #магазин
     position_id: Mapped[int] = mapped_column(ForeignKey(Position.id, ondelete="SET NULL"), nullable=True)           #занимаемая сотрудником должность
+
+
+class ShopRequestForConfirmation(Base):
+    __tablename__ = "shop_request_for_confirmation"
+    
+    id: Mapped[int] = mapped_column(type_=Integer(), primary_key=True, autoincrement=True)                          #уникальный идентификатор
+    shop_id: Mapped[int] = mapped_column(ForeignKey(Shop.id, ondelete="CASCADE"))                                   #магазин
+    is_processed: Mapped[bool] = mapped_column(Boolean(), default=True)                                             #запрос в обработке / обработан
+    is_rejected: Mapped[bool] = mapped_column(Boolean(), default=None, nullable=True)                               #запрос отклонен / одобрен
+    date_of_creation: Mapped[datetime] = mapped_column(type_=DateTime(), nullable=False, default=datetime.now())    #дата и время создания
+    date_of_change: Mapped[datetime] = mapped_column(type_=DateTime(), nullable=False)                              #дата и время изменения
+
 
 class Brand(Base):
     __tablename__ = "brand"
@@ -164,7 +181,7 @@ class ProductInShop(Base):
     id: Mapped[int] = mapped_column(type_=Integer(), primary_key=True, autoincrement=True)                          #уникальный идентификатор
     shop_id: Mapped[int] = mapped_column(ForeignKey(Shop.id, ondelete="CASCADE"))                                   #магазин, в котором лежит продукт
     product_id: Mapped[int] = mapped_column(ForeignKey(Product.id, ondelete="SET NULL"), nullable=True)             #продукт, который лежит в магазине
-    amount: Mapped[int] = mapped_column(Integer(), default=None, nullable=True)                                   #количество продукта
+    amount: Mapped[int] = mapped_column(Integer(), default=None, nullable=True)                                     #количество продукта
     price: Mapped[float] = mapped_column(Float(), default=None, nullable=True)                                      #цена продукта
     date_of_creation: Mapped[datetime] = mapped_column(type_=DateTime(), nullable=False, default=datetime.now())    #дата и время создания
 
