@@ -24,6 +24,10 @@ class NotFound(ResponseException):
     def __init__(self, message: str = "Not Found", status_code: int = 404, headers: Mapping[str, str] | None = None, media_type: str | None = None, background: BackgroundTask | None = None) -> None:
         super().__init__(message, status_code, headers, media_type, background)
 
+class NotAcceptable(ResponseException):
+    def __init__(self, message: str = "Not Acceptable", status_code: int = 406, headers: Mapping[str, str] | None = None, media_type: str | None = None, background: BackgroundTask | None = None) -> None:
+        super().__init__(message, status_code, headers, media_type, background)
+
 
 #TODO
 class CustomError(Exception):
