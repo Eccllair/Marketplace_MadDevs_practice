@@ -15,10 +15,11 @@ from sqlalchemy import select, insert, update, delete
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.engine import Result
+from sqlalchemy.engine.row import RowMapping
 
 from ..lib.pydantic_models import pd_shop, pd_shop_edit, pd_position, pd_position_edit
 from ..lib.secure import create_jwt, check_jwt, check_email, get_current_user, bcrypt_context
-from ..lib.exceptions import NotFound, Forbidden
+from ..lib.exceptions import NotFound, Forbidden, NotAcceptable
 from ..lib.responses import JResponse
 from ..models import User, Shop, ShopImage, ShopAndUser, Position
 from ..database import get_async_session
@@ -28,16 +29,17 @@ shop_router = APIRouter()
 
 @shop_router.get("/")
 async def get_shops(cur_user: User = Depends(get_current_user), session: Session = Depends(get_async_session)):
-    shops_result: Result = await session.execute(select(Shop.id, Shop.name, Shop.avatar_img, Shop.description, Shop.is_verified).where(not Shop.is_deleted))
-    shops: list[dict] = shops_result.mappings().all()
+    """get all shops"""
+    shops_result: Result = await session.execute(select(Shop.id, Shop.name, Shop.avatar_img, Shop.description, Shop.is_confirmed).where(Shop.is_deleted == False))
+    shops: list[RowMapping] = shops_result.mappings().all()
     
     shops_response = []
     for shop in shops:
-        shop_images_result: Result = session.execute(select(ShopImage.src).where(ShopImage.shop_id == shop.id))
+        shop_images_result: Result = await session.execute(select(ShopImage.src).where(ShopImage.shop_id == shop.id))
         shop_images: list = shop_images_result.scalars().all()
         shops_response.append(
             {
-                "shop" : shop,
+                "shop" : dict(shop),
                 "images" : shop_images
             }
         )
@@ -48,17 +50,20 @@ async def get_shops(cur_user: User = Depends(get_current_user), session: Session
 @shop_router.get("/{id}")
 async def get_shop(id:int, cur_user: User = Depends(get_current_user), session: Session = Depends(get_async_session)):
     try:
-        shop_result: Result = session.execute(select(Shop.id, Shop.name, Shop.avatar_img, Shop.description, Shop.is_verified).where(not Shop.is_deleted and Shop.id == id))
-        shop: dict = shop_result.mappings().one()
+        shop_result: Result = await session.execute(select(Shop.id, Shop.name, Shop.avatar_img, Shop.description, Shop.is_confirmed, Shop.is_deleted).where(Shop.id == id))
+        shop: RowMapping = shop_result.mappings().one()
     except NoResultFound as e:
         logging.error(f"404 GET shop error:\n{e._message()}")
         return NotFound(message=f"shop with id [{id}] does not exists")
+    if shop.is_deleted == True: return NotAcceptable(message="shop has been deleted")
     
-    shop_images_result: Result = session.execute(select(ShopImage.src).where(ShopImage.shop_id == shop.id))
+    shop_images_result: Result = await session.execute(select(ShopImage.src).where(ShopImage.shop_id == shop.id))
     shop_images: list = shop_images_result.scalars().all()
     
+    shop_d = dict(shop)
+    shop_d.pop("is_deleted")
     body = {
-        "shop" : shop,
+        "shop" : shop_d,
         "images" : shop_images
     }
     return JResponse(body=body)
@@ -66,7 +71,8 @@ async def get_shop(id:int, cur_user: User = Depends(get_current_user), session: 
 
 @shop_router.post("/")
 async def create_shop(shop: pd_shop, cur_user: User = Depends(get_current_user), session: Session = Depends(get_async_session)):
-    await session.execute(insert(Shop).values(owner_id=cur_user.id, name=shop.name, description=shop.description, avatar_img=shop.avatar_img))
+    shop_d: dict = shop.model_dump(exclude_none=True)
+    await session.execute(insert(Shop).values(owner_id=cur_user.id, **shop_d))
     await session.commit()
     return JResponse()
 
@@ -76,11 +82,12 @@ async def edit_shop(shop: pd_shop_edit, cur_user: User = Depends(get_current_use
     #проверка входных данных
     try:
         shop_db_r: Result = await session.execute(select(Shop).where(Shop.id == shop.id))
-        shop_db: Shop = shop_db_r.mappings().one()
+        shop_db: Shop = shop_db_r.scalar_one()
     except NoResultFound as e:
         logging.error(f"PATCH shop error: {e._message()}")
         return NotFound(message=f"shop with id [{shop.id}] does not exists")
     if shop_db.owner_id != cur_user.id: return Forbidden(message="only shop owner can change shop")
+    if shop_db.is_deleted == True: return NotAcceptable(message="shop has been deleted")
     
     #редактирвние записи магазина
     values: dict = shop.model_dump(exclude_none=True, exclude={"id"})
@@ -88,8 +95,8 @@ async def edit_shop(shop: pd_shop_edit, cur_user: User = Depends(get_current_use
     await session.commit()
     
     #формирование ответа
-    new_shop_r: Result = await session.execute(select(Shop.id, Shop.owner_id, Shop.name, Shop.description, Shop.avatar_img, Shop.is_confirmed).where(Shop.id == shop.id))
-    new_shop: dict = new_shop_r.mappings().one()
+    new_shop_r: Result = await session.execute(select(Shop.id, Shop.name, Shop.description, Shop.avatar_img, Shop.is_confirmed).where(Shop.id == shop.id))
+    new_shop: dict = dict(new_shop_r.mappings().one())
     return JResponse(message="shop updated", body=new_shop)
 
 
@@ -98,14 +105,15 @@ async def delete_shop(shop_id: int, cur_user: User = Depends(get_current_user), 
     #проверка входных данных
     try:
         shop_db_r: Result = await session.execute(select(Shop).where(Shop.id == shop_id))
-        shop_db: Shop = shop_db_r.mappings().one()
+        shop_db: Shop = shop_db_r.scalar_one()
     except NoResultFound as e:
         logging.error(f"DELETE shop error: {e._message()}")
         return NotFound(message=f"shop with id [{shop_id}] does not exists")
     if shop_db.owner_id != cur_user.id: return Forbidden(message="only shop owner can delete shop")
+    if shop_db.is_deleted == True: return NotAcceptable(message="shop already deleted")
     
     #удаление магазина
-    await session.execute(delete(Shop).where(Shop.id == shop_id))
+    await session.execute(update(Shop).values(is_deleted=True).where(Shop.id == shop_id))
     await session.commit()
 
 
@@ -136,7 +144,7 @@ async def get_job_titles(cur_user: User = Depends(get_current_user), session: Se
         )
         .where(Position.creator_id == cur_user.id)
     )
-    return positions_r.mappings().all()
+    return JResponse(body=[dict(position) for position in positions_r.mappings().all()])
     
 
 
@@ -181,7 +189,8 @@ async def create_job_title(position: pd_position, cur_user: User = Depends(get_c
 
 @shop_router.patch("/positions")
 async def edit_job_title(position: pd_position_edit, cur_user: User = Depends(get_current_user), session: Session = Depends(get_async_session)):
-    values = position.model_dump(exclude_none=True, exclude={"id"})
+    values: dict = position.model_dump(exclude_none=True, exclude={"id"})
+    values["date_of_change"] = datetime.now()
     try:
         old_position_r: Result = await session.execute(select(Position).where(Position.id == position.id))
         old_position: Position = old_position_r.scalar_one()
@@ -194,10 +203,21 @@ async def edit_job_title(position: pd_position_edit, cur_user: User = Depends(ge
     
     await session.execute(update(Position).values(values).where(Position.id == position.id))
     await session.commit()
-    position_r: Result = await session.execute(select(Position).where(Position.id == position.id))
-    new_position: list[dict] = [dict(pos) for pos in position_r.scalars().all()]
-    new_position.pop("creator_id")
-    return NotFound(message=f"position with id [{position.id}] does not exist")
+    position_r: Result = await session.execute(
+        select(
+            Position.id,
+            Position.name,
+            Position.can_add_staff,
+            Position.can_change_staff,
+            Position.can_delete_staff,
+            Position.can_add_product,
+            Position.can_change_product,
+            Position.can_delete_product
+        )
+        .where(Position.id == position.id)
+    )
+    new_position: dict = dict(position_r.mappings().one())
+    return JResponse(message="position updated", body=new_position)
 
 
 @shop_router.delete("/positions")
