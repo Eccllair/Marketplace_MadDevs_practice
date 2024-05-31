@@ -88,8 +88,6 @@ class pd_position(BaseModel):
     can_add_product: bool | None = None
     can_change_product: bool | None = None
     can_delete_product: bool | None = None
-    date_of_creation: bool | None = None
-    date_of_change: bool | None = None
     
 class pd_position_edit(BaseModel):
     id: int
@@ -100,5 +98,3 @@ class pd_position_edit(BaseModel):
     can_add_product: bool | None = None
     can_change_product: bool | None = None
     can_delete_product: bool | None = None
-    date_of_creation: bool | None = None
-    date_of_change: bool | None = None

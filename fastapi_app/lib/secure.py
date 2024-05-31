@@ -107,7 +107,7 @@ async def check_jwt(jwt_str: str, session: Session = async_session_maker()) -> b
 async def get_user_from_jwt(jwt_str, session: Session = async_session_maker()) -> User:
     user_login = decode_jwt(jwt_str).login
     bd_user: Result = await session.execute(select(User).where(User.login == user_login))
-    return bd_user.scalars().one()
+    return bd_user.scalar_one()
 
 
 #работа напрямую с аудетнификацией 
